@@ -95,7 +95,14 @@ jobs:
         if: ${{ env.SITE_URL != '' }}
         run: |
           for i in 1 2 3 4 5 6; do
-            if curl -fsS "$SITE_URL/api/health"; then echo; exit 0; fi
+            if curl -fsS "$SITE_URL/" -o /tmp/demo-home.html \
+              && curl -fsS "$SITE_URL/api/health" -o /tmp/demo-health.json \
+              && python3 -c 'import json; h=json.load(open("/tmp/demo-health.json")); assert h.get("api")=="ok" and h.get("data")=="ok", h' \
+              && curl -fsS "$SITE_URL/api/dashboard" -o /tmp/demo-dashboard.json \
+              && python3 -c 'import json; d=json.load(open("/tmp/demo-dashboard.json")); assert {"resumo", "categorias", "fornecedores", "mensal"}.issubset(d), "dashboard incompleto"'; then
+              cat /tmp/demo-health.json
+              echo; exit 0
+            fi
             echo "ainda subindo... ($i)"; sleep 5
           done
           echo "o site não respondeu depois do deploy"; exit 1

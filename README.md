@@ -2,7 +2,7 @@
 
 Repositório demo do laboratório de DevOps do **Amontada Valley**. É um painel de pedidos de compra: uma tela, uma API e um serviço de análise de dados, publicados no container da squad por um workflow do GitHub Actions.
 
-Site de exemplo: `atlas.amontadavalley.com.br`
+Site de exemplo: `demo.amontadavalley.com.br`. O produto continua sendo Atlas; este repositório publica no container de testes `demo`, como usuário `demo`, em `/home/demo/apps/atlas-demo`. Os serviços mantêm os nomes `atlas-web`, `atlas-api` e `atlas-data`.
 
 | Pasta | O que é | Tecnologia |
 |---|---|---|
@@ -40,6 +40,8 @@ Abra `http://localhost:3000`. Portas: web 3000, api 3001, dados 8000.
 ```
 
 Gera uma cópia em `../<usuario-da-squad>` com usuário, domínio, nomes dos serviços e do nginx trocados. As portas ficam as mesmas, porque cada squad tem o próprio container. O usuário precisa ser o da squad no servidor (`comprasabertas`, `atlas` ou `monitorame`). Os dados de exemplo continuam sendo de compras; troque pelo domínio da squad.
+
+Este checkout foi apontado para o ambiente `demo`, mas o gerador ainda substitui somente os nomes Atlas. Depois de gerar uma cópia, ajuste também `DOMINIO` em `deploy/remote-deploy.sh` e `server_name` no arquivo do nginx: troque `demo.amontadavalley.com.br` pelo domínio da nova squad. Confira as variables de deploy antes de publicar.
 
 ## Dados de exemplo
 

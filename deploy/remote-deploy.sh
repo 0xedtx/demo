@@ -7,7 +7,7 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_USER="$(id -un)"
-DOMINIO="atlas.amontadavalley.com.br"
+DOMINIO="demo.amontadavalley.com.br"
 SITE_NOME="atlas-app"
 cd "$DIR"
 
