@@ -1,0 +1,101 @@
+name: Deploy
+
+# Cai aqui quando um PR é mergeado na main (ou quando alguém clica em "Run workflow").
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Nunca dois deploys ao mesmo tempo no mesmo container.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    # Variables e secrets abaixo vivem no Environment "production" do repositório (docs/CONFIGURACAO.md).
+    environment: production
+    env:
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_USER: ${{ vars.SSH_USER }}
+      DEPLOY_PATH_VAR: ${{ vars.DEPLOY_PATH }}
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build do web (Next, modo standalone)
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+
+      - name: Build da api (Nest)
+        working-directory: api
+        run: |
+          npm ci
+          npm run build
+
+      - name: Montar o pacote de release
+        run: |
+          mkdir -p release/web release/api release/data
+          cp -r web/.next/standalone/. release/web/
+          cp -r api/dist api/package.json api/package-lock.json release/api/
+          cp -r data/app data/requirements.txt release/data/
+          find release -name __pycache__ -type d -prune -exec rm -rf {} +
+          cp -r deploy release/deploy
+          tar -czf release.tgz -C release .
+
+      - name: Preparar o SSH pelo túnel do Cloudflare
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          curl -fsSL -o cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host valley
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+
+      - name: Enviar e ativar no container
+        run: |
+          DEPLOY_PATH="${DEPLOY_PATH_VAR:-/home/$SSH_USER/apps/demo}"
+          scp release.tgz valley:/tmp/atlas-release.tgz
+          ssh valley bash -s -- "$DEPLOY_PATH" <<'REMOTE'
+          set -euo pipefail
+          D="$1"
+          mkdir -p "$D"
+          rm -rf "$D/web" "$D/api/dist" "$D/data/app" "$D/deploy"
+          tar -xzf /tmp/atlas-release.tgz -C "$D"
+          rm -f /tmp/atlas-release.tgz
+          bash "$D/deploy/remote-deploy.sh"
+          REMOTE
+
+      - name: Teste de fumaça (o site respondeu pelo domínio?)
+        if: ${{ env.SITE_URL != '' }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "$SITE_URL/api/health"; then echo; exit 0; fi
+            echo "ainda subindo... ($i)"; sleep 5
+          done
+          echo "o site não respondeu depois do deploy"; exit 1

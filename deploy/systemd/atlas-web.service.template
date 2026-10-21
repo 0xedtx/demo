@@ -1,0 +1,23 @@
+# Serviço de sistema que roda a tela (Next, modo standalone) como o usuário da squad.
+# __APP_DIR__ e __APP_USER__ são trocados pelo deploy/remote-deploy.sh.
+[Unit]
+Description=atlas - web (Next)
+After=network.target atlas-api.service
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/web
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/local/bin/node server.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atlas-web
+
+[Install]
+WantedBy=multi-user.target

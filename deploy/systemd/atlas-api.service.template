@@ -1,0 +1,23 @@
+# Serviço de sistema que roda a API (Nest) como o usuário da squad.
+# __APP_DIR__ e __APP_USER__ são trocados pelo deploy/remote-deploy.sh.
+[Unit]
+Description=atlas - api (Nest)
+After=network.target atlas-data.service
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/api
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=DATA_URL=http://127.0.0.1:8000
+ExecStart=/usr/local/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atlas-api
+
+[Install]
+WantedBy=multi-user.target

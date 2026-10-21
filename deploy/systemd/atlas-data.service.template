@@ -1,0 +1,23 @@
+# Serviço de sistema que roda o serviço de dados (FastAPI) como o usuário da squad.
+# __APP_DIR__ e __APP_USER__ são trocados pelo deploy/remote-deploy.sh.
+# O arquivo .env (só no servidor, fora do git) guarda o DATABASE_URL.
+[Unit]
+Description=atlas - dados (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__/data
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__APP_DIR__/data/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atlas-data
+
+[Install]
+WantedBy=multi-user.target
